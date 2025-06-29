@@ -15,6 +15,39 @@ body {
   box-sizing: border-box;
 }
 
+.name-entry-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    text-align: center;
+}
+
+.name-entry-container h1 {
+    font-size: 3rem;
+    color: #ffc107;
+}
+
+.name-entry-container p {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+}
+
+.name-entry-container .name-changer input {
+    font-size: 1.2rem;
+    padding: 10px;
+}
+.name-entry-container .name-changer button {
+    font-size: 1.2rem;
+    padding: 11px 20px;
+}
+
+.player-name-display {
+    font-size: 1.1rem;
+}
+
+
 .top-info {
   width: 100%;
   display: flex;
@@ -24,22 +57,6 @@ body {
   box-sizing: border-box;
   margin-bottom: 10px;
   flex-shrink: 0;
-}
-
-.name-changer input {
-  padding: 5px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-}
-
-.name-changer button {
-  padding: 6px 10px;
-  margin-left: 5px;
-  border-radius: 4px;
-  border: none;
-  background-color: #4CAF50;
-  color: white;
-  cursor: pointer;
 }
 
 .table {
@@ -252,4 +269,6 @@ body {
     color: white;
 }
 
-
+.card.red-card {
+  color: #D32F2F;
+}

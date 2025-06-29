@@ -20,10 +20,56 @@ function App() {
   const [gameJoined, setGameJoined] = useState(false);
 
   const handRef = useRef(null);
-  const messageTimeoutRef = useRef(null); // Ref to hold the message timer
+  const messageTimeoutRef = useRef(null);
 
   const hand = playerId ? (hands[playerId] || []) : [];
   const opponents = players.filter(p => p.id !== playerId);
+
+  // --- NEW: Helper function to sort cards in hand ---
+  const sortHand = (cards) => {
+    const rankOrder = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
+    const getRankIndex = (card) => rankOrder.indexOf(card.slice(0, -1));
+
+    const groupedByRank = cards.reduce((acc, card) => {
+      const rank = card.slice(0, -1);
+      if (!acc[rank]) {
+        acc[rank] = [];
+      }
+      acc[rank].push(card);
+      return acc;
+    }, {});
+
+    const pairsAndMore = [];
+    const singletons = [];
+
+    // Separate pairs/groups from single cards
+    for (const rank in groupedByRank) {
+      if (groupedByRank[rank].length > 1) {
+        pairsAndMore.push(groupedByRank[rank]);
+      } else {
+        singletons.push(groupedByRank[rank]);
+      }
+    }
+
+    // Sort the groups based on rank order
+    const sortInnerGroups = (groups) => groups.sort((a, b) => getRankIndex(a[0]) - getRankIndex(b[0]));
+    
+    sortInnerGroups(pairsAndMore);
+    sortInnerGroups(singletons);
+
+    // Combine sorted groups, with pairs first, then singletons
+    const sortedCards = [...pairsAndMore.flat(), ...singletons.flat()];
+    return sortedCards;
+  };
+
+  // --- NEW: Helper function to determine card color ---
+  const getCardColorClass = (card) => {
+    const suit = card.slice(-1);
+    if (suit === '♥' || suit === '♦') {
+      return 'red-card';
+    }
+    return '';
+  };
 
   const pluralizeRank = (count, rank) => {
     if (!rank) return '';
@@ -40,6 +86,10 @@ function App() {
 
     socket.on('room state', setPlayers);
     socket.on('game started', ({ hands, turn, players }) => {
+        // --- MODIFIED: Sort hands upon receiving them ---
+        Object.keys(hands).forEach(pId => {
+            hands[pId] = sortHand(hands[pId]);
+        });
         setHands(hands);
         setCurrentTurn(turn);
         setPlayers(players);
@@ -56,7 +106,15 @@ function App() {
       setDeclaredRank(declaredRank);
       if (whoPlayed === socket.id) setSelected([]);
     });
-    socket.on('update hands', setHands);
+    
+    // --- MODIFIED: Sort hands upon receiving an update ---
+    socket.on('update hands', (allHands) => {
+        Object.keys(allHands).forEach(pId => {
+            allHands[pId] = sortHand(allHands[pId]);
+        });
+        setHands(allHands);
+    });
+
     socket.on('table cleared', () => {
       setLastPlayed(null);
       setDeclaredRank('');
@@ -67,15 +125,10 @@ function App() {
         setTimeout(() => setRevealedCards([]), 4000);
     });
     
-    // Logic to display and then hide the message after 4 seconds
     socket.on('message', (msg) => {
         setMessage(msg);
-        if (messageTimeoutRef.current) {
-            clearTimeout(messageTimeoutRef.current);
-        }
-        messageTimeoutRef.current = setTimeout(() => {
-            setMessage('');
-        }, 4000);
+        if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
+        messageTimeoutRef.current = setTimeout(() => setMessage(''), 4000);
     });
 
     socket.on('error message', alert);
@@ -93,17 +146,13 @@ function App() {
       socket.off('message');
       socket.off('error message');
       socket.off('game over');
-      if (messageTimeoutRef.current) {
-        clearTimeout(messageTimeoutRef.current);
-      }
+      if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
     };
   }, []);
 
   const joinGame = () => {
     let nameToSet = playerName.trim();
-    if (!nameToSet) {
-      nameToSet = `Player #${Math.floor(Math.random() * 1000)}`;
-    }
+    if (!nameToSet) nameToSet = `Player #${Math.floor(Math.random() * 1000)}`;
     setPlayerName(nameToSet);
     localStorage.setItem('playerName', nameToSet);
     socket.emit('join room', { roomId, playerName: nameToSet });
@@ -186,7 +235,7 @@ function App() {
               const showFace = lastPlayed.playerId === playerId || revealedCards.includes(card);
               if (showFace) {
                 return (
-                  <div key={i} className="card" style={{'--i': i}}>
+                  <div key={i} className={`card ${getCardColorClass(card)}`} style={{'--i': i}}>
                     {card}
                   </div>
                 );
@@ -207,7 +256,9 @@ function App() {
                 <button className="scroll-btn" onClick={() => scrollHand(-1)}>◀</button>
                 <div className="card-row" ref={handRef}>
                 {hand.map(card => (
-                    <div key={card} onClick={() => toggleCard(card)} className={`card ${selected.includes(card) ? 'selected' : ''}`}>{card}</div>
+                    <div key={card} onClick={() => toggleCard(card)} className={`card ${selected.includes(card) ? 'selected' : ''} ${getCardColorClass(card)}`}>
+                        {card}
+                    </div>
                 ))}
                 </div>
                 <button className="scroll-btn" onClick={() => scrollHand(1)}>▶</button>
