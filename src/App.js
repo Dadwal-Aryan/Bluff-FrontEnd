@@ -18,7 +18,6 @@ function App() {
   const [declaredRank, setDeclaredRank] = useState('');
   const [winner, setWinner] = useState(null);
   const [gameJoined, setGameJoined] = useState(false);
-  const [tableCards, setTableCards] = useState([]); // This was missing from the last version of the code I sent you. Apologies.
 
   const handRef = useRef(null);
   const messageTimeoutRef = useRef(null);
@@ -84,7 +83,11 @@ function App() {
     const handleGameStateUpdate = (gameState) => {
         if (gameState.players) setPlayers(gameState.players);
         if (gameState.turn) setCurrentTurn(gameState.turn);
-        if (gameState.lastPlayed) setLastPlayed(gameState.lastPlayed);
+        if (gameState.lastPlayed) {
+            setLastPlayed(gameState.lastPlayed);
+        } else {
+            setLastPlayed(null); // Explicitly clear if not present
+        }
         if (gameState.declaredRank !== undefined) setDeclaredRank(gameState.declaredRank);
 
         if (gameState.hands) {
@@ -104,27 +107,25 @@ function App() {
         setWinner(null);
         setMessage('');
         setRevealedCards([]);
-        setTableCards([]); // Ensure table cards are cleared on new game
     });
-
+    
+    // **THE FIX IS HERE**: The logic for 'cards played' and 'table cleared' is now simplified.
+    // The server is the single source of truth for the 'lastPlayed' state.
     socket.on('cards played', ({ whoPlayed, playedCards, declaredRank }) => {
       setLastPlayed({ playerId: whoPlayed, cards: playedCards, declaredRank });
       setDeclaredRank(declaredRank);
-      setTableCards(playedCards); // Set the pile to only the last played cards
       if (whoPlayed === socket.id) setSelected([]);
+    });
+
+    socket.on('table cleared', () => {
+      setLastPlayed(null);
+      setDeclaredRank('');
+      setRevealedCards([]);
     });
 
     socket.on('reveal cards', (cards) => {
         setRevealedCards(cards);
         setTimeout(() => setRevealedCards([]), 4000);
-    });
-    
-    // **THE FIX IS HERE**: The 'table cleared' event listener now also clears the visual pile.
-    socket.on('table cleared', () => {
-      setLastPlayed(null);
-      setDeclaredRank('');
-      setRevealedCards([]);
-      setTableCards([]); // This was the missing line
     });
 
     socket.on('message', (msg) => {
@@ -139,6 +140,8 @@ function App() {
       socket.off('connect');
       socket.off('game update');
       socket.off('game started');
+      socket.off('cards played'); // Make sure to clean up old listeners if any
+      socket.off('table cleared'); // Make sure to clean up old listeners if any
       socket.off('reveal cards');
       socket.off('message');
       socket.off('game over');
@@ -227,9 +230,9 @@ function App() {
 
         <div className="center-area">
           <div className="pile">
-            {/* Logic for the pile has been simplified to render based on a single state */}
-            {tableCards.map((card, i) => {
-              const showFace = (lastPlayed && lastPlayed.playerId === playerId) || revealedCards.includes(card);
+            {/* Logic for the pile now renders directly from `lastPlayed` state */}
+            {lastPlayed && lastPlayed.cards.map((card, i) => {
+              const showFace = (lastPlayed.playerId === playerId) || revealedCards.includes(card);
               if (showFace) {
                 return (
                   <div key={i} className={`card ${getCardColorClass(card)}`} style={{'--i': i}}>
