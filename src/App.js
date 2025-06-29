@@ -18,6 +18,7 @@ function App() {
   const [declaredRank, setDeclaredRank] = useState('');
   const [winner, setWinner] = useState(null);
   const [gameJoined, setGameJoined] = useState(false);
+  const [tableCards, setTableCards] = useState([]); // This was missing from the last version of the code I sent you. Apologies.
 
   const handRef = useRef(null);
   const messageTimeoutRef = useRef(null);
@@ -103,6 +104,14 @@ function App() {
         setWinner(null);
         setMessage('');
         setRevealedCards([]);
+        setTableCards([]); // Ensure table cards are cleared on new game
+    });
+
+    socket.on('cards played', ({ whoPlayed, playedCards, declaredRank }) => {
+      setLastPlayed({ playerId: whoPlayed, cards: playedCards, declaredRank });
+      setDeclaredRank(declaredRank);
+      setTableCards(playedCards); // Set the pile to only the last played cards
+      if (whoPlayed === socket.id) setSelected([]);
     });
 
     socket.on('reveal cards', (cards) => {
@@ -110,11 +119,12 @@ function App() {
         setTimeout(() => setRevealedCards([]), 4000);
     });
     
+    // **THE FIX IS HERE**: The 'table cleared' event listener now also clears the visual pile.
     socket.on('table cleared', () => {
-      // **THE FIX IS HERE**: This now also clears the visual card pile.
       setLastPlayed(null);
       setDeclaredRank('');
       setRevealedCards([]);
+      setTableCards([]); // This was the missing line
     });
 
     socket.on('message', (msg) => {
@@ -217,11 +227,20 @@ function App() {
 
         <div className="center-area">
           <div className="pile">
-            {lastPlayed && lastPlayed.cards.map((card, i) => {
-              const showFace = lastPlayed.playerId === playerId || revealedCards.includes(card);
-              return showFace ? 
-                (<div key={i} className={`card ${getCardColorClass(card)}`} style={{'--i': i}}>{card}</div>) : 
-                (<div key={i} className="card back" style={{'--i': i}}></div>);
+            {/* Logic for the pile has been simplified to render based on a single state */}
+            {tableCards.map((card, i) => {
+              const showFace = (lastPlayed && lastPlayed.playerId === playerId) || revealedCards.includes(card);
+              if (showFace) {
+                return (
+                  <div key={i} className={`card ${getCardColorClass(card)}`} style={{'--i': i}}>
+                    {card}
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={i} className="card back" style={{'--i': i}}></div>
+                );
+              }
             })}
           </div>
           {lastPlayed && (
