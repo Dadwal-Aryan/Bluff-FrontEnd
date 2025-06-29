@@ -32,7 +32,6 @@ function App() {
     return count === 1 ? `1 ${baseName}` : `${count} ${baseName}s`;
   };
 
-  // This hook now ONLY sets up listeners. It runs once.
   useEffect(() => {
     socket.on('connect', () => {
       console.log('Connected to server with id:', socket.id);
@@ -54,7 +53,8 @@ function App() {
     });
     socket.on('turn', setCurrentTurn);
     socket.on('cards played', ({ whoPlayed, playedCards, declaredRank }) => {
-      setTableCards(prev => [...prev, ...playedCards]); 
+      // This state now tracks the entire play history for rendering the pile
+      setTableCards(prev => [...prev, {playerId: whoPlayed, cards: playedCards}]); 
       setLastPlayed({ playerId: whoPlayed, cards: playedCards, declaredRank });
       setDeclaredRank(declaredRank);
       if (whoPlayed === socket.id) setSelected([]);
@@ -87,17 +87,15 @@ function App() {
       socket.off('error message');
       socket.off('game over');
     };
-  }, []); // Empty dependency array is crucial here.
+  }, []);
 
   const joinGame = () => {
     let nameToSet = playerName.trim();
     if (!nameToSet) {
       nameToSet = `Player #${Math.floor(Math.random() * 1000)}`;
     }
-    // Update local state and storage immediately
     setPlayerName(nameToSet);
     localStorage.setItem('playerName', nameToSet);
-    // THEN emit to server
     socket.emit('join room', { roomId, playerName: nameToSet });
     setGameJoined(true);
   };
@@ -124,7 +122,6 @@ function App() {
   
   const isMyTurn = currentTurn === playerId;
 
-  // Show a "Join Game" screen until the player has entered their name
   if (!gameJoined) {
     return (
         <div className="name-entry-container">
@@ -175,9 +172,11 @@ function App() {
 
         <div className="center-area">
           <div className="pile">
-            {tableCards.slice(-5).map((card, i) =>
+            {/* We only need to render the most RECENT play on the pile */}
+            {lastPlayed && lastPlayed.cards.map((card, i) =>
                 <div key={i} className="card" style={{'--i': i}}>
-                  {revealedCards.includes(card) || (lastPlayed && lastPlayed.cards.includes(card)) ? card : <div className="back"></div>}
+                  {/* FIX: Only show the card if YOU played it, or if it has been revealed by a bluff call */}
+                  {lastPlayed.playerId === playerId || revealedCards.includes(card) ? card : <div className="back"></div>}
                 </div>
             )}
           </div>
