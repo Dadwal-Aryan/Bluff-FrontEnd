@@ -1,0 +1,176 @@
+.game-container {
+  padding: 20px;
+  background: #0b3d0b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.table {
+  background: #145214;
+  border-radius: 30px;
+  width: 95vw;
+  max-width: 1200px;
+  height: 450px;       /* taller table for rectangular shape */
+  display: flex;
+  flex-direction: column; /* stack opponent, center, player vertically */
+  justify-content: space-between;
+  padding: 20px 30px;
+  box-sizing: border-box;
+  box-shadow: 0 0 30px rgba(0, 100, 0, 0.6);
+  margin-top: 20px;
+}
+
+/* Opponent cards at top */
+.opponent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.opponent-row {
+  justify-content: center;
+  overflow-x: visible;
+  gap: 10px;
+}
+
+/* Center pile in the middle */
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.pile {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 300px;
+  min-height: 100px;
+}
+
+.play-btn {
+  margin-top: 15px;
+  background: #2c8c2c;
+  border: none;
+  color: white;
+  padding: 10px 25px;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.play-btn:hover {
+  background: #1e5f1e;
+}
+
+/* Player cards at bottom */
+.player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.hand-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 900px;
+  position: relative;
+  margin-top: 5px;
+}
+
+.card-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #666 #ccc;
+  -webkit-overflow-scrolling: touch;
+  flex: 1; /* fill available space between buttons */
+}
+
+.card-row::-webkit-scrollbar {
+  height: 8px;
+}
+
+.card-row::-webkit-scrollbar-track {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+.card-row::-webkit-scrollbar-thumb {
+  background-color: #666;
+  border-radius: 4px;
+}
+
+.card {
+  background: white;
+  color: black;
+  width: 50px;
+  height: 70px;
+  border-radius: 6px;
+  box-shadow: 0 0 3px rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+  font-size: 20px;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s ease;
+}
+
+.card.selected {
+  transform: translateY(-15px);
+  box-shadow: 0 0 10px 3px #6fdb6f;
+  border: 2px solid #4caf50;
+}
+
+.card.back {
+  background: #1f4e1f;
+  border: 2px solid #0b3d0b;
+  cursor: default;
+}
+
+.card.played {
+  background: #dff0d8;
+  color: #3c763d;
+  cursor: default;
+}
+
+.scroll-btn {
+  background: #2c8c2c;
+  border: none;
+  color: white;
+  font-size: 24px;
+  width: 35px;
+  height: 70px;
+  cursor: pointer;
+  border-radius: 6px;
+  user-select: none;
+  transition: background 0.3s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.scroll-btn:hover {
+  background: #1e5f1e;
+}
+
+.scroll-btn.left {
+  margin-right: 10px;
+}
+
+.scroll-btn.right {
+  margin-left: 10px;
+}
