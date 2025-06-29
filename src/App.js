@@ -25,6 +25,29 @@ function App() {
   const hand = playerId ? (hands[playerId] || []) : [];
   const opponents = players.filter(p => p.id !== playerId);
   
+  // --- FIX: Re-added helper function to sort cards in hand ---
+  const sortHand = (cards) => {
+    if (!cards) return [];
+    const rankOrder = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
+    const getRankValue = (card) => {
+        const rank = card.slice(0, -1);
+        const index = rankOrder.indexOf(rank);
+        return index === -1 ? 99 : index; // Place unknowns at the end
+    };
+
+    return [...cards].sort((a, b) => getRankValue(a) - getRankValue(b));
+  };
+  
+  // --- FIX: Re-added helper function to determine card color ---
+  const getCardColorClass = (card) => {
+    if (!card) return '';
+    const suit = card.slice(-1);
+    if (suit === '♥' || suit === '♦') {
+      return 'red-card';
+    }
+    return '';
+  };
+
   const getPlayerNameById = (id) => players.find(p => p.id === id)?.name || 'Player';
 
   const pluralizeRank = (count, rank) => {
@@ -38,22 +61,30 @@ function App() {
   useEffect(() => {
     socket.on('connect', () => setPlayerId(socket.id));
 
-    // ** NEW ARCHITECTURE: Single listener for all game state changes **
-    socket.on('game update', (gameState) => {
-        setPlayers(gameState.players);
-        setHands(gameState.hands);
-        setCurrentTurn(gameState.turn);
-        setLastPlayed(gameState.lastPlayed);
-        setDeclaredRank(gameState.declaredRank);
-        setSelected([]); // Always clear selection on update
-    });
+    const handleGameStateUpdate = (gameState) => {
+        if (gameState.players) setPlayers(gameState.players);
+        if (gameState.turn) setCurrentTurn(gameState.turn);
+        if (gameState.lastPlayed) setLastPlayed(gameState.lastPlayed);
+        if (gameState.declaredRank !== undefined) setDeclaredRank(gameState.declaredRank);
 
-    socket.on('game started', (gameState) => { // Handles a fresh game start
-        setHands(gameState.hands);
-        setCurrentTurn(gameState.turn);
-        setPlayers(gameState.players);
+        // --- FIX: Sort hands upon receiving any update ---
+        if (gameState.hands) {
+            const sortedHands = {};
+            for (const pId in gameState.hands) {
+                sortedHands[pId] = sortHand(gameState.hands[pId]);
+            }
+            setHands(sortedHands);
+        }
+        setSelected([]);
+    };
+    
+    socket.on('game update', handleGameStateUpdate);
+
+    socket.on('game started', (gameState) => {
+        handleGameStateUpdate(gameState);
         setWinner(null);
         setMessage('');
+        setRevealedCards([]);
     });
 
     socket.on('reveal cards', (cards) => {
@@ -164,7 +195,7 @@ function App() {
             {lastPlayed && lastPlayed.cards.map((card, i) => {
               const showFace = lastPlayed.playerId === playerId || revealedCards.includes(card);
               return showFace ? 
-                (<div key={i} className="card" style={{'--i': i}}>{card}</div>) : 
+                (<div key={i} className={`card ${getCardColorClass(card)}`} style={{'--i': i}}>{card}</div>) : 
                 (<div key={i} className="card back" style={{'--i': i}}></div>);
             })}
           </div>
@@ -182,7 +213,9 @@ function App() {
                 <button className="scroll-btn" onClick={() => scrollHand(-1)}>◀</button>
                 <div className="card-row" ref={handRef}>
                 {hand.map(card => (
-                    <div key={card} onClick={() => toggleCard(card)} className={`card ${selected.includes(card) ? 'selected' : ''}`}>{card}</div>
+                    <div key={card} onClick={() => toggleCard(card)} className={`card ${selected.includes(card) ? 'selected' : ''} ${getCardColorClass(card)}`}>
+                        {card}
+                    </div>
                 ))}
                 </div>
                 <button className="scroll-btn" onClick={() => scrollHand(1)}>▶</button>
