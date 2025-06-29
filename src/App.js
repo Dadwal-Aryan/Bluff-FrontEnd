@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import './App.css';
 
-// ✅ Updated to use your live backend
 const socket = io('https://bluff-backend-jckf.onrender.com');
 
 function App() {
@@ -13,39 +12,51 @@ function App() {
   const [hand, setHand] = useState([]);
   const [selected, setSelected] = useState([]);
   const [tableCards, setTableCards] = useState([]);
+  const [message, setMessage] = useState(null);
+  const [lastPlayed, setLastPlayed] = useState(null);
 
   const handRef = useRef(null);
 
   useEffect(() => {
     socket.on('connect', () => {
-      console.log('Connected with ID:', socket.id);
       setPlayerId(socket.id);
       socket.emit('join room', roomId);
     });
 
     socket.on('deal cards', (cards) => {
-      console.log('Your hand:', cards);
       setHand(cards);
-      setSelected([]); // clear selection on new hand
+      setSelected([]);
     });
 
     socket.on('turn', (playerSocketId) => {
       setCurrentTurn(playerSocketId);
-      console.log('It is now', playerSocketId === socket.id ? 'your turn' : "opponent's turn");
+      setMessage(null);
     });
 
     socket.on('room state', (players) => {
       setPlayers(players);
-      console.log('Players in room:', players);
     });
 
     socket.on('cards played', ({ playerId: whoPlayed, playedCards }) => {
       setTableCards((prev) => [...prev, ...playedCards]);
-      // If current player played cards, remove them from hand and clear selection
+      setLastPlayed({ playerId: whoPlayed, cards: playedCards });
       if (whoPlayed === socket.id) {
         setHand((prevHand) => prevHand.filter(card => !playedCards.includes(card)));
         setSelected([]);
       }
+    });
+
+    socket.on('update hands', (hands) => {
+      setHand(hands[socket.id] || []);
+    });
+
+    socket.on('table cleared', () => {
+      setTableCards([]);
+      setLastPlayed(null);
+    });
+
+    socket.on('message', (msg) => {
+      setMessage(msg);
     });
 
     socket.on('error message', (msg) => {
@@ -58,6 +69,9 @@ function App() {
       socket.off('turn');
       socket.off('room state');
       socket.off('cards played');
+      socket.off('update hands');
+      socket.off('table cleared');
+      socket.off('message');
       socket.off('error message');
     };
   }, [roomId]);
@@ -80,8 +94,20 @@ function App() {
       return;
     }
 
-    // Send played cards to backend
-    socket.emit('play cards', { roomId, playedCards: selectedCards });
+    // Ask user to declare rank (simplified - you can enhance UI later)
+    let declaredRank = prompt("Declare the rank of your played cards (e.g., 2, 3, J, Q, K, A):");
+    if (!declaredRank) return;
+    declaredRank = declaredRank.toUpperCase();
+
+    socket.emit('play cards', { roomId, playedCards: selectedCards, declaredRank });
+  };
+
+  const callBluff = () => {
+    if (!lastPlayed || lastPlayed.playerId === playerId) {
+      alert("You can only call bluff on your opponent's last play.");
+      return;
+    }
+    socket.emit('call bluff', roomId);
   };
 
   const scrollLeft = () => {
@@ -100,6 +126,7 @@ function App() {
     <div className="game-container">
       <p>Players in room: {players.length}</p>
       <p>{currentTurn === playerId ? "Your turn" : "Opponent's turn"}</p>
+      {message && <p className="message">{message}</p>}
 
       <div className="table">
         <div className="opponent">
@@ -118,6 +145,9 @@ function App() {
             ))}
           </div>
           <button className="play-btn" onClick={playCards}>Throw Selected Cards</button>
+          <button className="bluff-btn" onClick={callBluff} disabled={!lastPlayed || lastPlayed.playerId === playerId}>
+            Call Bluff
+          </button>
         </div>
 
         <div className="player">
