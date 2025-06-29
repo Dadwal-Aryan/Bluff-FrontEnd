@@ -251,3 +251,23 @@ body {
     background-color: #5cb85c;
     color: white;
 }
+/* Add these styles to your App.css file */
+
+.debug-panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: monospace;
+  z-index: 9999;
+  opacity: 0.8;
+}
+
+.debug-panel p {
+  margin: 0 0 5px;
+  padding: 0;
+}
+
