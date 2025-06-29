@@ -25,51 +25,7 @@ function App() {
   const hand = playerId ? (hands[playerId] || []) : [];
   const opponents = players.filter(p => p.id !== playerId);
 
-  // --- NEW: Helper function to sort cards in hand ---
-  const sortHand = (cards) => {
-    const rankOrder = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
-    const getRankIndex = (card) => rankOrder.indexOf(card.slice(0, -1));
-
-    const groupedByRank = cards.reduce((acc, card) => {
-      const rank = card.slice(0, -1);
-      if (!acc[rank]) {
-        acc[rank] = [];
-      }
-      acc[rank].push(card);
-      return acc;
-    }, {});
-
-    const pairsAndMore = [];
-    const singletons = [];
-
-    // Separate pairs/groups from single cards
-    for (const rank in groupedByRank) {
-      if (groupedByRank[rank].length > 1) {
-        pairsAndMore.push(groupedByRank[rank]);
-      } else {
-        singletons.push(groupedByRank[rank]);
-      }
-    }
-
-    // Sort the groups based on rank order
-    const sortInnerGroups = (groups) => groups.sort((a, b) => getRankIndex(a[0]) - getRankIndex(b[0]));
-    
-    sortInnerGroups(pairsAndMore);
-    sortInnerGroups(singletons);
-
-    // Combine sorted groups, with pairs first, then singletons
-    const sortedCards = [...pairsAndMore.flat(), ...singletons.flat()];
-    return sortedCards;
-  };
-
-  // --- NEW: Helper function to determine card color ---
-  const getCardColorClass = (card) => {
-    const suit = card.slice(-1);
-    if (suit === '♥' || suit === '♦') {
-      return 'red-card';
-    }
-    return '';
-  };
+  const getPlayerNameById = (id) => players.find(p => p.id === id)?.name || 'Player';
 
   const pluralizeRank = (count, rank) => {
     if (!rank) return '';
@@ -86,10 +42,6 @@ function App() {
 
     socket.on('room state', setPlayers);
     socket.on('game started', ({ hands, turn, players }) => {
-        // --- MODIFIED: Sort hands upon receiving them ---
-        Object.keys(hands).forEach(pId => {
-            hands[pId] = sortHand(hands[pId]);
-        });
         setHands(hands);
         setCurrentTurn(turn);
         setPlayers(players);
@@ -106,15 +58,7 @@ function App() {
       setDeclaredRank(declaredRank);
       if (whoPlayed === socket.id) setSelected([]);
     });
-    
-    // --- MODIFIED: Sort hands upon receiving an update ---
-    socket.on('update hands', (allHands) => {
-        Object.keys(allHands).forEach(pId => {
-            allHands[pId] = sortHand(allHands[pId]);
-        });
-        setHands(allHands);
-    });
-
+    socket.on('update hands', setHands);
     socket.on('table cleared', () => {
       setLastPlayed(null);
       setDeclaredRank('');
@@ -234,19 +178,18 @@ function App() {
             {lastPlayed && lastPlayed.cards.map((card, i) => {
               const showFace = lastPlayed.playerId === playerId || revealedCards.includes(card);
               if (showFace) {
-                return (
-                  <div key={i} className={`card ${getCardColorClass(card)}`} style={{'--i': i}}>
-                    {card}
-                  </div>
-                );
+                return <div key={i} className="card" style={{'--i': i}}>{card}</div>;
               } else {
-                return (
-                  <div key={i} className="card back" style={{'--i': i}}></div>
-                );
+                return <div key={i} className="card back" style={{'--i': i}}></div>;
               }
             })}
           </div>
-          {lastPlayed && <div className="claim-text">Claim: {pluralizeRank(lastPlayed.cards.length, lastPlayed.declaredRank)}</div>}
+          {lastPlayed && (
+            <div className="claim-text">
+              {/* TWEAK 1: Added player name before the claim text */}
+              <strong>{getPlayerNameById(lastPlayed.playerId)}</strong> claims: {pluralizeRank(lastPlayed.cards.length, lastPlayed.declaredRank)}
+            </div>
+          )}
           {message && <div className="message-box">{message}</div>}
         </div>
 
@@ -256,9 +199,7 @@ function App() {
                 <button className="scroll-btn" onClick={() => scrollHand(-1)}>◀</button>
                 <div className="card-row" ref={handRef}>
                 {hand.map(card => (
-                    <div key={card} onClick={() => toggleCard(card)} className={`card ${selected.includes(card) ? 'selected' : ''} ${getCardColorClass(card)}`}>
-                        {card}
-                    </div>
+                    <div key={card} onClick={() => toggleCard(card)} className={`card ${selected.includes(card) ? 'selected' : ''}`}>{card}</div>
                 ))}
                 </div>
                 <button className="scroll-btn" onClick={() => scrollHand(1)}>▶</button>
