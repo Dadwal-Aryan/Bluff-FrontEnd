@@ -9,7 +9,7 @@ function App() {
   const [players, setPlayers] = useState([]);
   const [playerId, setPlayerId] = useState(null);
   const [currentTurn, setCurrentTurn] = useState(null);
-  const [hand, setHand] = useState([]);
+  const [hands, setHands] = useState({});  // All players' hands
   const [selected, setSelected] = useState([]);
   const [tableCards, setTableCards] = useState([]);
   const [message, setMessage] = useState(null);
@@ -19,6 +19,9 @@ function App() {
 
   const handRef = useRef(null);
 
+  // Your own hand derived from all hands
+  const hand = playerId ? (hands[playerId] || []) : [];
+
   useEffect(() => {
     socket.on('connect', () => {
       setPlayerId(socket.id);
@@ -26,7 +29,8 @@ function App() {
     });
 
     socket.on('deal cards', (cards) => {
-      setHand(cards);
+      // hands will be updated from update hands event, but reset here for safety
+      setHands((prev) => ({ ...prev, [socket.id]: cards }));
       setSelected([]);
       setTableCards([]);
       setLastPlayed(null);
@@ -49,15 +53,14 @@ function App() {
       setDeclaredRank(declaredRank);
 
       if (whoPlayed === socket.id) {
-        setHand((prevHand) => prevHand.filter(card => !playedCards.includes(card)));
         setSelected([]);
       }
 
       setRevealed(false);
     });
 
-    socket.on('update hands', (hands) => {
-      setHand(hands[socket.id] || []);
+    socket.on('update hands', (allHands) => {
+      setHands(allHands);
     });
 
     socket.on('table cleared', () => {
@@ -149,9 +152,13 @@ function App() {
         <div className="opponent">
           <p>Opponent</p>
           <div className="card-row opponent-row">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="card back"></div>
-            ))}
+            {players
+              .filter((p) => p !== playerId)
+              .flatMap((opponentId) =>
+                (hands[opponentId] || []).map((_, i) => (
+                  <div key={`${opponentId}-${i}`} className="card back"></div>
+                ))
+              )}
           </div>
         </div>
 
