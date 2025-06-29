@@ -8,7 +8,7 @@ function App() {
   const [roomId] = useState('room-abc');
   const [players, setPlayers] = useState([]); // [{id, name}]
   const [playerId, setPlayerId] = useState(null);
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem('playerName') || '');
   const [currentTurn, setCurrentTurn] = useState(null);
   const [hands, setHands] = useState({});  // All players' hands keyed by playerId
   const [selected, setSelected] = useState([]);
@@ -40,20 +40,24 @@ function App() {
     socket.on('room state', (playersWithNames) => {
       setPlayers(playersWithNames);
 
-      // If current player doesn't have a name yet, prompt and send to server
-      if (socket.id && !playersWithNames.find(p => p.id === socket.id)?.name) {
-        let name = prompt("Enter your player name:", "");
-        if (!name || name.trim() === "") {
-          name = "Player";
+      const me = playersWithNames.find(p => p.id === socket.id);
+
+      // Prompt for name if no name or name is default "Player"
+      if (me && (!me.name || me.name === 'Player')) {
+        let storedName = localStorage.getItem('playerName') || '';
+        if (!storedName) {
+          let name = prompt("Enter your player name:", "");
+          if (!name || name.trim() === "") {
+            name = "Player";
+          }
+          storedName = name;
+          localStorage.setItem('playerName', storedName);
+          socket.emit('set name', { roomId, name: storedName });
         }
-        setPlayerName(name);
-        socket.emit('set name', { roomId, name });
-      } else {
-        // Update local playerName from server info if changed
-        const me = playersWithNames.find(p => p.id === socket.id);
-        if (me && me.name !== playerName) {
-          setPlayerName(me.name);
-        }
+        setPlayerName(storedName);
+      } else if (me && me.name !== playerName) {
+        setPlayerName(me.name);
+        localStorage.setItem('playerName', me.name);
       }
     });
 
