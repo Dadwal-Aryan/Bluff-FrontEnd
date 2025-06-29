@@ -6,10 +6,11 @@ const socket = io('https://bluff-backend-jckf.onrender.com');
 
 function App() {
   const [roomId] = useState('room-abc');
-  const [players, setPlayers] = useState([]);
+  const [players, setPlayers] = useState([]); // [{id, name}]
   const [playerId, setPlayerId] = useState(null);
+  const [playerName, setPlayerName] = useState('');
   const [currentTurn, setCurrentTurn] = useState(null);
-  const [hands, setHands] = useState({});  // All players' hands
+  const [hands, setHands] = useState({});  // All players' hands keyed by playerId
   const [selected, setSelected] = useState([]);
   const [tableCards, setTableCards] = useState([]);
   const [message, setMessage] = useState(null);
@@ -19,8 +20,16 @@ function App() {
 
   const handRef = useRef(null);
 
-  // Your own hand derived from all hands
   const hand = playerId ? (hands[playerId] || []) : [];
+
+  // Find opponents (assuming 2 players max)
+  const opponents = players.filter(p => p.id !== playerId);
+
+  // Get player name by id
+  const getNameById = (id) => {
+    const p = players.find(p => p.id === id);
+    return p ? p.name : 'Player';
+  };
 
   useEffect(() => {
     socket.on('connect', () => {
@@ -28,8 +37,27 @@ function App() {
       socket.emit('join room', roomId);
     });
 
+    socket.on('room state', (playersWithNames) => {
+      setPlayers(playersWithNames);
+
+      // If current player doesn't have a name yet, prompt and send to server
+      if (socket.id && !playersWithNames.find(p => p.id === socket.id)?.name) {
+        let name = prompt("Enter your player name:", "");
+        if (!name || name.trim() === "") {
+          name = "Player";
+        }
+        setPlayerName(name);
+        socket.emit('set name', { roomId, name });
+      } else {
+        // Update local playerName from server info if changed
+        const me = playersWithNames.find(p => p.id === socket.id);
+        if (me && me.name !== playerName) {
+          setPlayerName(me.name);
+        }
+      }
+    });
+
     socket.on('deal cards', (cards) => {
-      // hands will be updated from update hands event, but reset here for safety
       setHands((prev) => ({ ...prev, [socket.id]: cards }));
       setSelected([]);
       setTableCards([]);
@@ -43,12 +71,8 @@ function App() {
       setMessage(null);
     });
 
-    socket.on('room state', (players) => {
-      setPlayers(players);
-    });
-
     socket.on('cards played', ({ playerId: whoPlayed, playedCards, declaredRank }) => {
-      setTableCards((prev) => [...prev, { playerId: whoPlayed, cards: playedCards }]);
+      setTableCards((prev) => [...prev, { playerId: whoPlayed, cards: playedCards, declaredRank }]);
       setLastPlayed({ playerId: whoPlayed, cards: playedCards });
       setDeclaredRank(declaredRank);
 
@@ -94,7 +118,7 @@ function App() {
       socket.off('reveal cards');
       socket.off('error message');
     };
-  }, [roomId]);
+  }, [roomId, playerName]);
 
   const toggleCard = (index) => {
     setSelected((prev) =>
@@ -143,23 +167,28 @@ function App() {
 
   return (
     <div className="game-container">
-      <p>Players in room: {players.length}</p>
-      <p>{currentTurn === playerId ? "Your turn" : "Opponent's turn"}</p>
+      <p>
+        Players in room: {players.length} &nbsp;|&nbsp; 
+        Your name: <strong>{playerName || '...'}</strong>
+      </p>
+      <p>
+        {currentTurn === playerId ? "Your turn" : `Turn: ${getNameById(currentTurn) || 'Opponent'}`}
+      </p>
       {message && <p className="message">{message}</p>}
 
       <div className="table">
         {/* Opponent cards */}
         <div className="opponent">
-          <p>Opponent</p>
-          <div className="card-row opponent-row">
-            {players
-              .filter((p) => p !== playerId)
-              .flatMap((opponentId) =>
-                (hands[opponentId] || []).map((_, i) => (
-                  <div key={`${opponentId}-${i}`} className="card back"></div>
-                ))
-              )}
-          </div>
+          {opponents.map((opponent) => (
+            <div key={opponent.id}>
+              <p>{opponent.name || 'Opponent'}</p>
+              <div className="card-row opponent-row">
+                {(hands[opponent.id] || []).map((_, i) => (
+                  <div key={`${opponent.id}-${i}`} className="card back"></div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Center pile and declared rank */}
@@ -168,13 +197,31 @@ function App() {
             {declaredRank && <p>Claim: {declaredRank}s</p>}
           </div>
           <div className="pile">
-            {tableCards.map((entry, i) =>
-              entry.cards.map((card, j) => (
-                <div key={`${i}-${j}`} className="card played">
-                  {entry.playerId === playerId || revealed ? card : <div className="back" />}
+            {tableCards.map((entry, i) => (
+              <div key={i} style={{ position: 'relative', display: 'inline-block', marginRight: '10px' }}>
+                {entry.cards.map((card, j) => (
+                  <div key={`${i}-${j}`} className="card played">
+                    {entry.playerId === playerId || revealed ? card : <div className="back" />}
+                  </div>
+                ))}
+                {/* Declared rank badge on right shorter edge */}
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  right: '-30px',
+                  transform: 'translateY(-50%)',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '18px',
+                  userSelect: 'none',
+                  pointerEvents: 'none',
+                  whiteSpace: 'nowrap',
+                  textShadow: '1px 1px 3px black',
+                }}>
+                  {entry.declaredRank}s
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
           <button className="play-btn" onClick={playCards}>Throw Selected Cards</button>
           <button className="bluff-btn" onClick={callBluff} disabled={!lastPlayed || lastPlayed.playerId === playerId}>
@@ -184,7 +231,7 @@ function App() {
 
         {/* Player cards */}
         <div className="player">
-          <p>You</p>
+          <p>{playerName || 'You'}</p>
           <div className="hand-container">
             <button className="scroll-btn left" onClick={scrollLeft} aria-label="Scroll Left">&#9664;</button>
             <div className="card-row" ref={handRef}>
