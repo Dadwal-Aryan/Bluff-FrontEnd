@@ -57,15 +57,19 @@ function App() {
       }
     });
 
-    socket.on('deal cards', (allHands) => {
-      setHands(allHands);
-      setSelected([]);
-      setTableCards([]);
-      setLastPlayed(null);
-      setDeclaredRank('');
-      setRevealedCards([]);
-      setMessage('');
-      setWinner(null);
+    // UPDATED: Listen for the consolidated 'game started' event
+    socket.on('game started', ({ hands, turn, players }) => {
+        setHands(hands);
+        setCurrentTurn(turn);
+        setPlayers(players);
+        // Reset all game state for a fresh start
+        setSelected([]);
+        setTableCards([]);
+        setLastPlayed(null);
+        setDeclaredRank('');
+        setRevealedCards([]);
+        setMessage('');
+        setWinner(null);
     });
 
     socket.on('turn', (playerSocketId) => {
@@ -101,7 +105,7 @@ function App() {
     return () => {
       socket.off('connect');
       socket.off('room state');
-      socket.off('deal cards');
+      socket.off('game started'); // Clean up the new listener
       socket.off('turn');
       socket.off('cards played');
       socket.off('update hands');
@@ -181,8 +185,9 @@ function App() {
         <div className="center-area">
           <div className="pile">
             {tableCards.slice(-5).map((card, i) =>
-                <div key={i} className="card">
-                  <div className="back"></div>
+                <div key={i} className="card" style={{'--i': i}}>
+                  {/* Logic for revealing cards needs to be based on lastPlayed */}
+                  {revealedCards.includes(card) || lastPlayed?.playerId === playerId ? card : <div className="back"></div>}
                 </div>
             )}
           </div>
@@ -202,7 +207,7 @@ function App() {
                 <button className="scroll-btn" onClick={() => scrollHand(1)}>▶</button>
             </div>
             <div className="action-buttons">
-                <button onClick={playCards} disabled={!isMyTurn || selected.length === 0}>Play Cards</button>
+                <button className="play-btn" onClick={playCards} disabled={!isMyTurn || selected.length === 0}>Play Cards</button>
                 <button className="skip-btn" onClick={skipTurn} disabled={!isMyTurn || !declaredRank}>Skip Turn</button>
                 <button className="bluff-btn" onClick={callBluff} disabled={!isMyTurn || !lastPlayed}>Call Bluff</button>
             </div>
