@@ -24,7 +24,7 @@ function App() {
 
   const hand = playerId ? (hands[playerId] || []) : [];
   const opponents = players.filter(p => p.id !== playerId);
-
+  
   const getPlayerNameById = (id) => players.find(p => p.id === id)?.name || 'Player';
 
   const pluralizeRank = (count, rank) => {
@@ -36,34 +36,26 @@ function App() {
   };
 
   useEffect(() => {
-    socket.on('connect', () => {
-      setPlayerId(socket.id);
+    socket.on('connect', () => setPlayerId(socket.id));
+
+    // ** NEW ARCHITECTURE: Single listener for all game state changes **
+    socket.on('game update', (gameState) => {
+        setPlayers(gameState.players);
+        setHands(gameState.hands);
+        setCurrentTurn(gameState.turn);
+        setLastPlayed(gameState.lastPlayed);
+        setDeclaredRank(gameState.declaredRank);
+        setSelected([]); // Always clear selection on update
     });
 
-    socket.on('room state', setPlayers);
-    socket.on('game started', ({ hands, turn, players }) => {
-        setHands(hands);
-        setCurrentTurn(turn);
-        setPlayers(players);
-        setSelected([]);
-        setLastPlayed(null);
-        setDeclaredRank('');
-        setRevealedCards([]);
-        setMessage('');
+    socket.on('game started', (gameState) => { // Handles a fresh game start
+        setHands(gameState.hands);
+        setCurrentTurn(gameState.turn);
+        setPlayers(gameState.players);
         setWinner(null);
+        setMessage('');
     });
-    socket.on('turn', setCurrentTurn);
-    socket.on('cards played', ({ whoPlayed, playedCards, declaredRank }) => {
-      setLastPlayed({ playerId: whoPlayed, cards: playedCards, declaredRank });
-      setDeclaredRank(declaredRank);
-      if (whoPlayed === socket.id) setSelected([]);
-    });
-    socket.on('update hands', setHands);
-    socket.on('table cleared', () => {
-      setLastPlayed(null);
-      setDeclaredRank('');
-      setRevealedCards([]);
-    });
+
     socket.on('reveal cards', (cards) => {
         setRevealedCards(cards);
         setTimeout(() => setRevealedCards([]), 4000);
@@ -75,20 +67,14 @@ function App() {
         messageTimeoutRef.current = setTimeout(() => setMessage(''), 4000);
     });
 
-    socket.on('error message', alert);
     socket.on('game over', ({ winnerName }) => setWinner(winnerName));
 
     return () => {
       socket.off('connect');
-      socket.off('room state');
+      socket.off('game update');
       socket.off('game started');
-      socket.off('turn');
-      socket.off('cards played');
-      socket.off('update hands');
-      socket.off('table cleared');
       socket.off('reveal cards');
       socket.off('message');
-      socket.off('error message');
       socket.off('game over');
       if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
     };
@@ -109,13 +95,13 @@ function App() {
   
   const playCards = () => {
     if (selected.length === 0) return alert("Select at least one card to play.");
-    let currentDeclaredRank = declaredRank;
-    if (!currentDeclaredRank) {
-      const inputRank = prompt("Declare the rank for this round (e.g., 2, J, A):");
-      if (!inputRank) return;
-      currentDeclaredRank = inputRank.trim().toUpperCase();
+    let rankToDeclare = declaredRank;
+    if (!rankToDeclare) {
+      const input = prompt("Declare the rank for this round (e.g., 2, J, A):");
+      if (!input) return;
+      rankToDeclare = input.trim().toUpperCase();
     }
-    socket.emit('play cards', { roomId, playedCards: selected, declaredRank: currentDeclaredRank });
+    socket.emit('play cards', { roomId, playedCards: selected, declaredRank: rankToDeclare });
   };
   
   const skipTurn = () => socket.emit('skip turn', { roomId });
@@ -177,17 +163,14 @@ function App() {
           <div className="pile">
             {lastPlayed && lastPlayed.cards.map((card, i) => {
               const showFace = lastPlayed.playerId === playerId || revealedCards.includes(card);
-              if (showFace) {
-                return <div key={i} className="card" style={{'--i': i}}>{card}</div>;
-              } else {
-                return <div key={i} className="card back" style={{'--i': i}}></div>;
-              }
+              return showFace ? 
+                (<div key={i} className="card" style={{'--i': i}}>{card}</div>) : 
+                (<div key={i} className="card back" style={{'--i': i}}></div>);
             })}
           </div>
           {lastPlayed && (
             <div className="claim-text">
-              {/* TWEAK 1: Added player name before the claim text */}
-              <strong>{getPlayerNameById(lastPlayed.playerId)}</strong> claims: {pluralizeRank(lastPlayed.cards.length, lastPlayed.declaredRank)}
+                <strong>{getPlayerNameById(lastPlayed.playerId)}</strong> claims: {pluralizeRank(lastPlayed.cards.length, lastPlayed.declaredRank)}
             </div>
           )}
           {message && <div className="message-box">{message}</div>}
