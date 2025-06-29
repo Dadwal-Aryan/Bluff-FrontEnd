@@ -192,9 +192,9 @@ body {
     padding: 0 15px;
 }
 
-button.play-btn { background-color: #5cb85c; color: white; }
-button.skip-btn { background-color: #f0ad4e; color: white; }
-button.bluff-btn { background-color: #d9534f; color: white; }
+.play-btn { background-color: #5cb85c; color: white; }
+.skip-btn { background-color: #f0ad4e; color: white; }
+.bluff-btn { background-color: #d9534f; color: white; }
 
 
 .claim-text {

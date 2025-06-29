@@ -74,7 +74,7 @@ function App() {
     });
 
     socket.on('cards played', ({ whoPlayed, playedCards, declaredRank }) => {
-      setTableCards(prev => [...prev, { playerId: whoPlayed, cards: playedCards, declaredRank }]);
+      setTableCards(prev => [...prev, ...playedCards]); 
       setLastPlayed({ playerId: whoPlayed, cards: playedCards, declaredRank });
       setDeclaredRank(declaredRank);
       if (whoPlayed === socket.id) setSelected([]);
@@ -129,11 +129,13 @@ function App() {
   const playCards = () => {
     if (selected.length === 0) return alert("Select at least one card to play.");
     let currentDeclaredRank = declaredRank;
+    
     if (!currentDeclaredRank) {
       const inputRank = prompt("Declare the rank for this round (e.g., 2, J, A):");
       if (!inputRank) return;
       currentDeclaredRank = inputRank.trim().toUpperCase();
     }
+    
     socket.emit('play cards', { roomId, playedCards: selected, declaredRank: currentDeclaredRank });
   };
   
@@ -178,12 +180,10 @@ function App() {
 
         <div className="center-area">
           <div className="pile">
-            {tableCards.slice(-5).map((play, i) =>
-              play.cards.map(card => (
-                <div key={`${i}-${card}`} className="card">
-                  {play.playerId === playerId || revealedCards.includes(card) ? card : <div className="back"></div>}
+            {tableCards.slice(-5).map((card, i) =>
+                <div key={i} className="card">
+                  <div className="back"></div>
                 </div>
-              ))
             )}
           </div>
           {lastPlayed && <div className="claim-text">Claim: {pluralizeRank(lastPlayed.cards.length, lastPlayed.declaredRank)}</div>}
@@ -203,8 +203,8 @@ function App() {
             </div>
             <div className="action-buttons">
                 <button onClick={playCards} disabled={!isMyTurn || selected.length === 0}>Play Cards</button>
-                <button onClick={skipTurn} disabled={!isMyTurn || !declaredRank}>Skip Turn</button>
-                <button onClick={callBluff} disabled={!isMyTurn || !lastPlayed}>Call Bluff</button>
+                <button className="skip-btn" onClick={skipTurn} disabled={!isMyTurn || !declaredRank}>Skip Turn</button>
+                <button className="bluff-btn" onClick={callBluff} disabled={!isMyTurn || !lastPlayed}>Call Bluff</button>
             </div>
         </div>
       </div>
