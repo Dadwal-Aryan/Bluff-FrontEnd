@@ -20,8 +20,6 @@ function App() {
   const [gameJoined, setGameJoined] = useState(false);
 
   const handRef = useRef(null);
-  const messageTimeoutRef = useRef(null); // Ref to hold the timer
-
   const hand = playerId ? (hands[playerId] || []) : [];
   const opponents = players.filter(p => p.id !== playerId);
 
@@ -34,13 +32,24 @@ function App() {
   };
 
   useEffect(() => {
+    // --- DEBUG LOG ---
+    console.log('[App.js useEffect]: Setting up socket listeners.');
+
     socket.on('connect', () => {
-      console.log('Connected to server with id:', socket.id);
+      // --- DEBUG LOG ---
+      console.log('[connect]: Connected to server! My ID is', socket.id);
       setPlayerId(socket.id);
     });
 
-    socket.on('room state', setPlayers);
+    socket.on('room state', (players) => {
+      // --- DEBUG LOG ---
+      console.log('[room state]: Received room state update:', players);
+      setPlayers(players);
+    });
+
     socket.on('game started', ({ hands, turn, players }) => {
+        // --- DEBUG LOG ---
+        console.log('[game started]: Received game start data. Players:', players);
         setHands(hands);
         setCurrentTurn(turn);
         setPlayers(players);
@@ -53,12 +62,20 @@ function App() {
     });
     socket.on('turn', setCurrentTurn);
     socket.on('cards played', ({ whoPlayed, playedCards, declaredRank }) => {
+      // --- DEBUG LOG ---
+      console.log(`[cards played]: Received event. Played by ${whoPlayed}.`);
       setLastPlayed({ playerId: whoPlayed, cards: playedCards, declaredRank });
       setDeclaredRank(declaredRank);
       if (whoPlayed === socket.id) setSelected([]);
     });
-    socket.on('update hands', setHands);
+    socket.on('update hands', (allHands) => {
+        // --- DEBUG LOG ---
+        console.log('[update hands]: Received new hand state.', allHands);
+        setHands(allHands);
+    });
     socket.on('table cleared', () => {
+      // --- DEBUG LOG ---
+      console.log('[table cleared]: Clearing table.');
       setLastPlayed(null);
       setDeclaredRank('');
       setRevealedCards([]);
@@ -67,24 +84,13 @@ function App() {
         setRevealedCards(cards);
         setTimeout(() => setRevealedCards([]), 4000);
     });
-    
-    // **THE FIX**: This logic now includes a timer to clear the message.
-    socket.on('message', (msg) => {
-        setMessage(msg);
-        // Clear any existing timer
-        if (messageTimeoutRef.current) {
-            clearTimeout(messageTimeoutRef.current);
-        }
-        // Set a new timer to clear the message after 4 seconds
-        messageTimeoutRef.current = setTimeout(() => {
-            setMessage('');
-        }, 4000);
-    });
-
+    socket.on('message', setMessage);
     socket.on('error message', alert);
     socket.on('game over', ({ winnerName }) => setWinner(winnerName));
 
     return () => {
+      // --- DEBUG LOG ---
+      console.log('[App.js useEffect cleanup]: Removing socket listeners.');
       socket.off('connect');
       socket.off('room state');
       socket.off('game started');
@@ -96,10 +102,6 @@ function App() {
       socket.off('message');
       socket.off('error message');
       socket.off('game over');
-      // Clear the timer when the component unmounts to prevent memory leaks
-      if (messageTimeoutRef.current) {
-        clearTimeout(messageTimeoutRef.current);
-      }
     };
   }, []);
 
@@ -110,6 +112,8 @@ function App() {
     }
     setPlayerName(nameToSet);
     localStorage.setItem('playerName', nameToSet);
+    // --- DEBUG LOG ---
+    console.log(`[joinGame]: Emitting 'join room' with name: ${nameToSet}`);
     socket.emit('join room', { roomId, playerName: nameToSet });
     setGameJoined(true);
   };
@@ -157,6 +161,14 @@ function App() {
   
   return (
     <div className="game-container">
+      {/* --- DEBUG UI --- */}
+      <div className="debug-panel">
+        <p>My ID: {playerId || 'Connecting...'}</p>
+        <p>Players State: {JSON.stringify(players)}</p>
+        <p>Player Count: {players.length}</p>
+      </div>
+      {/* --- END DEBUG UI --- */}
+
       {winner && (
         <div className="game-over-overlay">
           <div className="game-over-box">
