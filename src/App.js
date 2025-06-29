@@ -9,6 +9,7 @@ function App() {
   const [players, setPlayers] = useState([]); // [{id, name}]
   const [playerId, setPlayerId] = useState(null);
   const [playerName, setPlayerName] = useState(() => localStorage.getItem('playerName') || '');
+  const [newName, setNewName] = useState('');
   const [currentTurn, setCurrentTurn] = useState(null);
   const [hands, setHands] = useState({});  // All players' hands keyed by playerId
   const [selected, setSelected] = useState([]);
@@ -169,12 +170,36 @@ function App() {
     if (handRef.current) handRef.current.scrollBy({ left: 150, behavior: 'smooth' });
   };
 
+  // Handle name change submission
+  const handleNameChange = (e) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    socket.emit('set name', { roomId, name: newName.trim() });
+    setPlayerName(newName.trim());
+    localStorage.setItem('playerName', newName.trim());
+    setNewName('');
+  };
+
   return (
     <div className="game-container">
       <p>
         Players in room: {players.length} &nbsp;|&nbsp; 
         Your name: <strong>{playerName || '...'}</strong>
       </p>
+
+      {/* Name change form */}
+      <form onSubmit={handleNameChange} style={{ marginBottom: '15px' }}>
+        <input
+          type="text"
+          placeholder="Change your name"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          maxLength={20}
+          style={{ padding: '5px' }}
+        />
+        <button type="submit" style={{ marginLeft: '5px' }}>Update Name</button>
+      </form>
+
       <p>
         {currentTurn === playerId ? "Your turn" : `Turn: ${getNameById(currentTurn) || 'Opponent'}`}
       </p>
