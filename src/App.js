@@ -167,18 +167,14 @@ function App() {
 
         <div className="center-area">
           <div className="pile">
-            {/* The pile now only renders cards from the 'lastPlayed' state */}
-            {lastPlayed && lastPlayed.cards.map((card, i) =>
-                <div key={i} className="card" style={{'--i': i}}>
-                  {/*
-                    THIS IS THE FIX:
-                    - `lastPlayed.playerId === playerId`: Is the person who played these cards ME? If so, show the face.
-                    - `revealedCards.includes(card)`: Has a bluff been called, revealing this card? If so, show the face.
-                    - Otherwise, show the back of the card.
-                  */}
-                  {lastPlayed.playerId === playerId || revealedCards.includes(card) ? card : <div className="back"></div>}
+            {lastPlayed && lastPlayed.cards.map((card, i) => {
+              const showFace = lastPlayed.playerId === playerId || revealedCards.includes(card);
+              return (
+                <div key={i} className={`card ${!showFace ? 'back' : ''}`} style={{'--i': i}}>
+                  {showFace ? card : ''}
                 </div>
-            )}
+              )
+            })}
           </div>
           {lastPlayed && <div className="claim-text">Claim: {pluralizeRank(lastPlayed.cards.length, lastPlayed.declaredRank)}</div>}
           {message && <div className="message-box">{message}</div>}
