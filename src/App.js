@@ -25,12 +25,11 @@ function App() {
   const hand = playerId ? (hands[playerId] || []) : [];
   const opponents = players.filter(p => p.id !== playerId);
   
-  // --- FIX: Updated helper function to sort cards by groups first ---
   const sortHand = (cards) => {
     if (!cards) return [];
     const rankOrder = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
     const getRankValue = (card) => {
-        const rank = card.slice(0, -1).replace('10', 'T'); // Handle '10' for sorting
+        const rank = card.slice(0, -1).replace('10', 'T');
         const index = rankOrder.indexOf(rank);
         return index === -1 ? 99 : index;
     };
@@ -45,7 +44,6 @@ function App() {
     const groups = [];
     const singles = [];
 
-    // Separate groups from single cards
     for (const rank in grouped) {
         if (grouped[rank].length > 1) {
             groups.push(grouped[rank]);
@@ -54,12 +52,9 @@ function App() {
         }
     }
 
-    // Sort the groups of cards internally by rank
     groups.sort((a, b) => getRankValue(a[0]) - getRankValue(b[0]));
-    // Sort the single cards by rank
     singles.sort((a, b) => getRankValue(a) - getRankValue(b));
 
-    // Combine the sorted groups and then the single cards
     return [...groups.flat(), ...singles];
   };
   
@@ -115,6 +110,13 @@ function App() {
         setTimeout(() => setRevealedCards([]), 4000);
     });
     
+    // **THE FIX IS HERE**: The 'table cleared' event listener now also clears the visual pile.
+    socket.on('table cleared', () => {
+      setLastPlayed(null);
+      setDeclaredRank('');
+      setRevealedCards([]);
+    });
+
     socket.on('message', (msg) => {
         setMessage(msg);
         if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
