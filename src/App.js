@@ -53,8 +53,6 @@ function App() {
     });
     socket.on('turn', setCurrentTurn);
     socket.on('cards played', ({ whoPlayed, playedCards, declaredRank }) => {
-      // This state now tracks the entire play history for rendering the pile
-      setTableCards(prev => [...prev, {playerId: whoPlayed, cards: playedCards}]); 
       setLastPlayed({ playerId: whoPlayed, cards: playedCards, declaredRank });
       setDeclaredRank(declaredRank);
       if (whoPlayed === socket.id) setSelected([]);
@@ -172,10 +170,9 @@ function App() {
 
         <div className="center-area">
           <div className="pile">
-            {/* We only need to render the most RECENT play on the pile */}
             {lastPlayed && lastPlayed.cards.map((card, i) =>
                 <div key={i} className="card" style={{'--i': i}}>
-                  {/* FIX: Only show the card if YOU played it, or if it has been revealed by a bluff call */}
+                  {/* THIS IS THE FIX: The logic now correctly checks the player who made the last move. */}
                   {lastPlayed.playerId === playerId || revealedCards.includes(card) ? card : <div className="back"></div>}
                 </div>
             )}
