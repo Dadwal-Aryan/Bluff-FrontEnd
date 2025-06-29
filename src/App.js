@@ -20,6 +20,8 @@ function App() {
   const [gameJoined, setGameJoined] = useState(false);
 
   const handRef = useRef(null);
+  const messageTimeoutRef = useRef(null); // Ref to hold the timer
+
   const hand = playerId ? (hands[playerId] || []) : [];
   const opponents = players.filter(p => p.id !== playerId);
 
@@ -65,7 +67,20 @@ function App() {
         setRevealedCards(cards);
         setTimeout(() => setRevealedCards([]), 4000);
     });
-    socket.on('message', setMessage);
+    
+    // **THE FIX**: This logic now includes a timer to clear the message.
+    socket.on('message', (msg) => {
+        setMessage(msg);
+        // Clear any existing timer
+        if (messageTimeoutRef.current) {
+            clearTimeout(messageTimeoutRef.current);
+        }
+        // Set a new timer to clear the message after 4 seconds
+        messageTimeoutRef.current = setTimeout(() => {
+            setMessage('');
+        }, 4000);
+    });
+
     socket.on('error message', alert);
     socket.on('game over', ({ winnerName }) => setWinner(winnerName));
 
@@ -81,6 +96,10 @@ function App() {
       socket.off('message');
       socket.off('error message');
       socket.off('game over');
+      // Clear the timer when the component unmounts to prevent memory leaks
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -167,11 +186,8 @@ function App() {
 
         <div className="center-area">
           <div className="pile">
-            {/* THIS IS THE DEFINITIVE FIX */}
             {lastPlayed && lastPlayed.cards.map((card, i) => {
               const showFace = lastPlayed.playerId === playerId || revealedCards.includes(card);
-              // We now explicitly return a div with the 'back' class if the face isn't shown.
-              // This is more robust than trying to conditionally add the class.
               if (showFace) {
                 return (
                   <div key={i} className="card" style={{'--i': i}}>
