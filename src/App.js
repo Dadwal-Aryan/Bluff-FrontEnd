@@ -14,6 +14,8 @@ function App() {
   const [tableCards, setTableCards] = useState([]);
   const [message, setMessage] = useState(null);
   const [lastPlayed, setLastPlayed] = useState(null);
+  const [revealed, setRevealed] = useState(false);
+  const [declaredRank, setDeclaredRank] = useState('');
 
   const handRef = useRef(null);
 
@@ -26,6 +28,10 @@ function App() {
     socket.on('deal cards', (cards) => {
       setHand(cards);
       setSelected([]);
+      setTableCards([]);
+      setLastPlayed(null);
+      setDeclaredRank('');
+      setRevealed(false);
     });
 
     socket.on('turn', (playerSocketId) => {
@@ -37,13 +43,17 @@ function App() {
       setPlayers(players);
     });
 
-    socket.on('cards played', ({ playerId: whoPlayed, playedCards }) => {
-      setTableCards((prev) => [...prev, ...playedCards]);
+    socket.on('cards played', ({ playerId: whoPlayed, playedCards, declaredRank }) => {
+      setTableCards((prev) => [...prev, { playerId: whoPlayed, cards: playedCards }]);
       setLastPlayed({ playerId: whoPlayed, cards: playedCards });
+      setDeclaredRank(declaredRank);
+
       if (whoPlayed === socket.id) {
         setHand((prevHand) => prevHand.filter(card => !playedCards.includes(card)));
         setSelected([]);
       }
+
+      setRevealed(false);
     });
 
     socket.on('update hands', (hands) => {
@@ -53,10 +63,16 @@ function App() {
     socket.on('table cleared', () => {
       setTableCards([]);
       setLastPlayed(null);
+      setDeclaredRank('');
+      setRevealed(false);
     });
 
     socket.on('message', (msg) => {
       setMessage(msg);
+    });
+
+    socket.on('reveal cards', () => {
+      setRevealed(true);
     });
 
     socket.on('error message', (msg) => {
@@ -72,6 +88,7 @@ function App() {
       socket.off('update hands');
       socket.off('table cleared');
       socket.off('message');
+      socket.off('reveal cards');
       socket.off('error message');
     };
   }, [roomId]);
@@ -94,32 +111,31 @@ function App() {
       return;
     }
 
-    // Ask user to declare rank (simplified - you can enhance UI later)
-    let declaredRank = prompt("Declare the rank of your played cards (e.g., 2, 3, J, Q, K, A):");
-    if (!declaredRank) return;
-    declaredRank = declaredRank.toUpperCase();
+    let declared = prompt("Declare the rank (e.g., 2, 3, 10, J, Q, K, A):");
+    if (!declared) return;
+    declared = declared.toUpperCase();
 
-    socket.emit('play cards', { roomId, playedCards: selectedCards, declaredRank });
+    socket.emit('play cards', {
+      roomId,
+      playedCards: selectedCards,
+      declaredRank: declared
+    });
   };
 
   const callBluff = () => {
     if (!lastPlayed || lastPlayed.playerId === playerId) {
-      alert("You can only call bluff on your opponent's last play.");
+      alert("You can only call bluff on your opponent's play.");
       return;
     }
     socket.emit('call bluff', roomId);
   };
 
   const scrollLeft = () => {
-    if (handRef.current) {
-      handRef.current.scrollBy({ left: -150, behavior: 'smooth' });
-    }
+    if (handRef.current) handRef.current.scrollBy({ left: -150, behavior: 'smooth' });
   };
 
   const scrollRight = () => {
-    if (handRef.current) {
-      handRef.current.scrollBy({ left: 150, behavior: 'smooth' });
-    }
+    if (handRef.current) handRef.current.scrollBy({ left: 150, behavior: 'smooth' });
   };
 
   return (
@@ -129,6 +145,7 @@ function App() {
       {message && <p className="message">{message}</p>}
 
       <div className="table">
+        {/* Opponent cards */}
         <div className="opponent">
           <p>Opponent</p>
           <div className="card-row opponent-row">
@@ -138,11 +155,19 @@ function App() {
           </div>
         </div>
 
+        {/* Center pile and declared rank */}
         <div className="center">
+          <div className="claimed-rank">
+            {declaredRank && <p>Claim: {declaredRank}s</p>}
+          </div>
           <div className="pile">
-            {tableCards.map((card, i) => (
-              <div key={i} className="card played">{card}</div>
-            ))}
+            {tableCards.map((entry, i) =>
+              entry.cards.map((card, j) => (
+                <div key={`${i}-${j}`} className="card played">
+                  {entry.playerId === playerId || revealed ? card : <div className="back" />}
+                </div>
+              ))
+            )}
           </div>
           <button className="play-btn" onClick={playCards}>Throw Selected Cards</button>
           <button className="bluff-btn" onClick={callBluff} disabled={!lastPlayed || lastPlayed.playerId === playerId}>
@@ -150,6 +175,7 @@ function App() {
           </button>
         </div>
 
+        {/* Player cards */}
         <div className="player">
           <p>You</p>
           <div className="hand-container">
