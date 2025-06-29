@@ -167,13 +167,22 @@ function App() {
 
         <div className="center-area">
           <div className="pile">
+            {/* THIS IS THE DEFINITIVE FIX */}
             {lastPlayed && lastPlayed.cards.map((card, i) => {
               const showFace = lastPlayed.playerId === playerId || revealedCards.includes(card);
-              return (
-                <div key={i} className={`card ${!showFace ? 'back' : ''}`} style={{'--i': i}}>
-                  {showFace ? card : ''}
-                </div>
-              )
+              // We now explicitly return a div with the 'back' class if the face isn't shown.
+              // This is more robust than trying to conditionally add the class.
+              if (showFace) {
+                return (
+                  <div key={i} className="card" style={{'--i': i}}>
+                    {card}
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={i} className="card back" style={{'--i': i}}></div>
+                );
+              }
             })}
           </div>
           {lastPlayed && <div className="claim-text">Claim: {pluralizeRank(lastPlayed.cards.length, lastPlayed.declaredRank)}</div>}
