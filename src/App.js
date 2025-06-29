@@ -43,24 +43,31 @@ function App() {
 
       const me = playersWithNames.find(p => p.id === socket.id);
 
-      // If no name yet or default "Player", prompt once and send to server
-      if (me && (!me.name || me.name === 'Player')) {
-        let storedName = localStorage.getItem('playerName') || '';
-        if (!storedName) {
-          let name = prompt("Enter your player name:", "");
-          if (!name || name.trim() === "") {
-            name = "Player";
+      if (me) {
+        if ((!me.name || me.name === 'Player') && !playerName) {
+          // Prompt only if no name stored locally and server default name
+          let storedName = localStorage.getItem('playerName') || '';
+          if (!storedName) {
+            let name = prompt("Enter your player name:", "");
+            if (!name || name.trim() === "") {
+              name = "Player";
+            }
+            storedName = name.trim();
+            localStorage.setItem('playerName', storedName);
+            socket.emit('set name', { roomId, name: storedName });
+          } else {
+            socket.emit('set name', { roomId, name: storedName });
           }
-          storedName = name;
-          localStorage.setItem('playerName', storedName);
-          socket.emit('set name', { roomId, name: storedName });
+          setPlayerName(storedName);
+          setNewNameInput(storedName);
+        } else if (me.name !== playerName) {
+          setPlayerName(me.name);
+          setNewNameInput(me.name);
+          localStorage.setItem('playerName', me.name);
+        } else if (!newNameInput) {
+          // Sync input if empty
+          setNewNameInput(me.name);
         }
-        setPlayerName(storedName);
-        setNewNameInput(storedName);
-      } else if (me && me.name !== playerName) {
-        setPlayerName(me.name);
-        setNewNameInput(me.name);
-        localStorage.setItem('playerName', me.name);
       }
     });
 
@@ -125,17 +132,19 @@ function App() {
       socket.off('reveal cards');
       socket.off('error message');
     };
-  }, [roomId, playerName]);
+  }, [roomId, playerName, newNameInput]);
 
-  // Function to send name change to server
+  // Send name change to server on button click
   const updateName = () => {
-    if (newNameInput.trim() === '') {
+    const trimmed = newNameInput.trim();
+    if (trimmed === '') {
       alert('Name cannot be empty.');
       return;
     }
-    socket.emit('set name', { roomId, name: newNameInput.trim() });
-    setPlayerName(newNameInput.trim());
-    localStorage.setItem('playerName', newNameInput.trim());
+    if (trimmed === playerName) return; // no change
+    socket.emit('set name', { roomId, name: trimmed });
+    setPlayerName(trimmed);
+    localStorage.setItem('playerName', trimmed);
   };
 
   const toggleCard = (index) => {
@@ -190,7 +199,6 @@ function App() {
         Your name: <strong>{playerName || '...'}</strong>
       </p>
 
-      {/* New UI for changing name */}
       <div style={{ marginBottom: '15px' }}>
         <input
           type="text"
@@ -238,7 +246,6 @@ function App() {
                     {entry.playerId === playerId || revealed ? card : <div className="back" />}
                   </div>
                 ))}
-                {/* Declared rank badge on right shorter edge */}
                 <div style={{
                   position: 'absolute',
                   top: '50%',
