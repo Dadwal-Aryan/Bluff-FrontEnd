@@ -25,20 +25,44 @@ function App() {
   const hand = playerId ? (hands[playerId] || []) : [];
   const opponents = players.filter(p => p.id !== playerId);
   
-  // --- FIX: Re-added helper function to sort cards in hand ---
+  // --- FIX: Updated helper function to sort cards by groups first ---
   const sortHand = (cards) => {
     if (!cards) return [];
     const rankOrder = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
     const getRankValue = (card) => {
-        const rank = card.slice(0, -1);
+        const rank = card.slice(0, -1).replace('10', 'T'); // Handle '10' for sorting
         const index = rankOrder.indexOf(rank);
-        return index === -1 ? 99 : index; // Place unknowns at the end
+        return index === -1 ? 99 : index;
     };
 
-    return [...cards].sort((a, b) => getRankValue(a) - getRankValue(b));
+    const grouped = cards.reduce((acc, card) => {
+        const rank = card.slice(0, -1);
+        if (!acc[rank]) acc[rank] = [];
+        acc[rank].push(card);
+        return acc;
+    }, {});
+
+    const groups = [];
+    const singles = [];
+
+    // Separate groups from single cards
+    for (const rank in grouped) {
+        if (grouped[rank].length > 1) {
+            groups.push(grouped[rank]);
+        } else {
+            singles.push(grouped[rank][0]);
+        }
+    }
+
+    // Sort the groups of cards internally by rank
+    groups.sort((a, b) => getRankValue(a[0]) - getRankValue(b[0]));
+    // Sort the single cards by rank
+    singles.sort((a, b) => getRankValue(a) - getRankValue(b));
+
+    // Combine the sorted groups and then the single cards
+    return [...groups.flat(), ...singles];
   };
   
-  // --- FIX: Re-added helper function to determine card color ---
   const getCardColorClass = (card) => {
     if (!card) return '';
     const suit = card.slice(-1);
@@ -67,7 +91,6 @@ function App() {
         if (gameState.lastPlayed) setLastPlayed(gameState.lastPlayed);
         if (gameState.declaredRank !== undefined) setDeclaredRank(gameState.declaredRank);
 
-        // --- FIX: Sort hands upon receiving any update ---
         if (gameState.hands) {
             const sortedHands = {};
             for (const pId in gameState.hands) {

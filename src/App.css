@@ -144,7 +144,8 @@ body {
   user-select: none;
   transition: all 0.2s ease;
   box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-  margin: 0 -10px;
+  /* TWEAK: Changed margin for more spacing. Cards no longer overlap. */
+  margin: 0 5px;
 }
 
 .your-area .card {
