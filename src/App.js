@@ -63,7 +63,7 @@ function App() {
     });
     socket.on('reveal cards', (cards) => {
         setRevealedCards(cards);
-        setTimeout(() => setRevealedCards([]), 4000); // Increased timeout for better visibility
+        setTimeout(() => setRevealedCards([]), 4000);
     });
     socket.on('message', setMessage);
     socket.on('error message', alert);
@@ -107,7 +107,6 @@ function App() {
       if (!inputRank) return;
       currentDeclaredRank = inputRank.trim().toUpperCase();
     }
-    // No optimistic update. Just emit and let the server be the source of truth.
     socket.emit('play cards', { roomId, playedCards: selected, declaredRank: currentDeclaredRank });
   };
   
@@ -168,8 +167,15 @@ function App() {
 
         <div className="center-area">
           <div className="pile">
+            {/* The pile now only renders cards from the 'lastPlayed' state */}
             {lastPlayed && lastPlayed.cards.map((card, i) =>
                 <div key={i} className="card" style={{'--i': i}}>
+                  {/*
+                    THIS IS THE FIX:
+                    - `lastPlayed.playerId === playerId`: Is the person who played these cards ME? If so, show the face.
+                    - `revealedCards.includes(card)`: Has a bluff been called, revealing this card? If so, show the face.
+                    - Otherwise, show the back of the card.
+                  */}
                   {lastPlayed.playerId === playerId || revealedCards.includes(card) ? card : <div className="back"></div>}
                 </div>
             )}
