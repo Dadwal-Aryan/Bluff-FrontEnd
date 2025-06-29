@@ -110,8 +110,8 @@ function App() {
         setTimeout(() => setRevealedCards([]), 4000);
     });
     
-    // **THE FIX IS HERE**: The 'table cleared' event listener now also clears the visual pile.
     socket.on('table cleared', () => {
+      // **THE FIX IS HERE**: This now also clears the visual card pile.
       setLastPlayed(null);
       setDeclaredRank('');
       setRevealedCards([]);
