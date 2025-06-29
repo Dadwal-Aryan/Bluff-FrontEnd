@@ -12,7 +12,6 @@ function App() {
   const [currentTurn, setCurrentTurn] = useState(null);
   const [hands, setHands] = useState({});
   const [selected, setSelected] = useState([]);
-  const [tableCards, setTableCards] = useState([]);
   const [message, setMessage] = useState('');
   const [lastPlayed, setLastPlayed] = useState(null);
   const [revealedCards, setRevealedCards] = useState([]);
@@ -44,7 +43,6 @@ function App() {
         setCurrentTurn(turn);
         setPlayers(players);
         setSelected([]);
-        setTableCards([]);
         setLastPlayed(null);
         setDeclaredRank('');
         setRevealedCards([]);
@@ -59,14 +57,13 @@ function App() {
     });
     socket.on('update hands', setHands);
     socket.on('table cleared', () => {
-      setTableCards([]);
       setLastPlayed(null);
       setDeclaredRank('');
       setRevealedCards([]);
     });
     socket.on('reveal cards', (cards) => {
         setRevealedCards(cards);
-        setTimeout(() => setRevealedCards([]), 3000);
+        setTimeout(() => setRevealedCards([]), 4000); // Increased timeout for better visibility
     });
     socket.on('message', setMessage);
     socket.on('error message', alert);
@@ -110,6 +107,7 @@ function App() {
       if (!inputRank) return;
       currentDeclaredRank = inputRank.trim().toUpperCase();
     }
+    // No optimistic update. Just emit and let the server be the source of truth.
     socket.emit('play cards', { roomId, playedCards: selected, declaredRank: currentDeclaredRank });
   };
   
@@ -172,7 +170,6 @@ function App() {
           <div className="pile">
             {lastPlayed && lastPlayed.cards.map((card, i) =>
                 <div key={i} className="card" style={{'--i': i}}>
-                  {/* THIS IS THE FIX: The logic now correctly checks the player who made the last move. */}
                   {lastPlayed.playerId === playerId || revealedCards.includes(card) ? card : <div className="back"></div>}
                 </div>
             )}
