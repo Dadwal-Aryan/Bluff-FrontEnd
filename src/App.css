@@ -1,18 +1,16 @@
-/* src/App.css */
-
-/* --- Base & Layout --- */
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #0b220a;
+  color: white;
+  overflow: hidden;
 }
 
 .game-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100vh;
-  color: white;
+  height: 100vh;
   padding: 10px;
   box-sizing: border-box;
 }
@@ -25,6 +23,7 @@ body {
   padding: 0 20px;
   box-sizing: border-box;
   margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .name-changer input {
@@ -32,8 +31,9 @@ body {
   border-radius: 4px;
   border: 1px solid #ccc;
 }
+
 .name-changer button {
-  padding: 5px 10px;
+  padding: 6px 10px;
   margin-left: 5px;
   border-radius: 4px;
   border: none;
@@ -44,8 +44,8 @@ body {
 
 .table {
   width: 100%;
-  max-width: 1200px;
-  height: 70vh;
+  max-width: 1400px;
+  height: 80vh;
   background: #1e5e32;
   border: 10px solid #133a13;
   border-radius: 150px / 75px;
@@ -59,6 +59,20 @@ body {
 
 .player-area {
   text-align: center;
+  height: 35%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.player-area p {
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
+}
+.active-turn {
+  color: #ffc107;
+  font-weight: bold;
+  text-shadow: 0 0 8px #ffc107;
 }
 
 .center-area {
@@ -69,27 +83,26 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 15px;
 }
 
-/* --- Cards --- */
 .card-row {
   display: flex;
   justify-content: center;
-  gap: -25px; /* Overlap cards slightly */
-  padding: 10px;
+  min-height: 95px;
 }
 
 .your-area .card-row {
+    width: 60vw;
+    max-width: 800px;
     overflow-x: auto;
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none;  /* IE and Edge */
-    padding: 10px 40px; /* Space for buttons */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding: 0 10px;
 }
 .your-area .card-row::-webkit-scrollbar {
-    display: none; /* Hide scrollbar for Chrome, Safari, Opera */
+    display: none;
 }
-
 
 .card {
   width: 60px;
@@ -106,7 +119,9 @@ body {
   user-select: none;
   transition: all 0.2s ease;
   box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+  margin: 0 -15px;
 }
+
 .your-area .card {
     cursor: pointer;
 }
@@ -127,17 +142,20 @@ body {
   background-image: repeating-linear-gradient(45deg, #c62828 0, #c62828 10px, #b71c1c 10px, #b71c1c 20px);
 }
 
-.pile .card {
-    position: absolute;
-}
 .pile {
     width: 80px;
     height: 110px;
     position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.pile .card {
+    position: absolute;
+    margin: 0;
+    transform: rotate(calc(var(--i, 0) * 8deg)) translateY(calc(var(--i, 0) * -2px));
 }
 
-
-/* --- Buttons & Info --- */
 .hand-container {
   display: flex;
   align-items: center;
@@ -158,6 +176,7 @@ body {
   cursor: pointer;
   transition: background-color 0.2s;
 }
+
 .action-buttons button:disabled {
     background-color: #555;
     color: #999;
@@ -170,22 +189,14 @@ body {
     color: white;
     font-size: 2rem;
     cursor: pointer;
+    padding: 0 15px;
 }
 
-button.skip-btn {
-  background-color: #f0ad4e;
-  color: white;
-}
-button.bluff-btn {
-    background-color: #d9534f;
-    color: white;
-}
-button.play-btn {
-    background-color: #5cb85c;
-    color: white;
-}
+button.play-btn { background-color: #5cb85c; color: white; }
+button.skip-btn { background-color: #f0ad4e; color: white; }
+button.bluff-btn { background-color: #d9534f; color: white; }
 
-/* --- Text & Messages --- */
+
 .claim-text {
   font-size: 1.2rem;
   font-weight: bold;
@@ -194,20 +205,15 @@ button.play-btn {
 }
 
 .message-box {
-    background: rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.6);
     padding: 10px;
     border-radius: 5px;
-    margin-top: 10px;
 }
 
-/* --- Game Over Overlay --- */
 .game-over-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.8);
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.85);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -215,18 +221,33 @@ button.play-btn {
 }
 
 .game-over-box {
-  background: white;
-  color: black;
-  padding: 30px 50px;
-  border-radius: 10px;
+  background: linear-gradient(145deg, #444, #222);
+  color: white;
+  padding: 40px 60px;
+  border-radius: 15px;
   text-align: center;
-  box-shadow: 0 0 20px black;
+  border: 2px solid #ffc107;
+  box-shadow: 0 0 25px rgba(255, 193, 7, 0.5);
 }
+
 .game-over-box h2 {
   font-size: 3rem;
   margin: 0 0 10px;
+  color: #ffc107;
 }
+
 .game-over-box p {
   font-size: 1.5rem;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
+}
+
+.game-over-box button {
+    padding: 12px 25px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background-color: #5cb85c;
+    color: white;
 }
