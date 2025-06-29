@@ -19,50 +19,31 @@ function App() {
   const [revealedCards, setRevealedCards] = useState([]);
   const [declaredRank, setDeclaredRank] = useState('');
   const [winner, setWinner] = useState(null);
+  const [isNameSet, setIsNameSet] = useState(false);
 
   const handRef = useRef(null);
   const hand = playerId ? (hands[playerId] || []) : [];
   const opponents = players.filter(p => p.id !== playerId);
 
-  const getNameById = (id) => players.find(p => p.id === id)?.name || 'Player';
-
-  const pluralizeRank = (count, rank) => {
-    if (!rank) return '';
-    const rankNames = {
-      '2': 'Two', '3': 'Three', '4': 'Four', '5': 'Five', '6': 'Six',
-      '7': 'Seven', '8': 'Eight', '9': 'Nine', '10': 'Ten',
-      'J': 'Jack', 'Q': 'Queen', 'K': 'King', 'A': 'Ace',
-    };
-    const baseName = rankNames[rank] || rank;
-    if (rank === '6') return count === 1 ? `1 Six` : `${count} Sixes`;
-    return count === 1 ? `1 ${baseName}` : `${count} ${baseName}s`;
-  };
-
+  // Effect for establishing connection and joining the room
   useEffect(() => {
     socket.on('connect', () => {
+      console.log('Connected to server with id:', socket.id);
       setPlayerId(socket.id);
-      socket.emit('join room', { roomId, playerName: localStorage.getItem('playerName') || '' });
-    });
-
-    socket.on('room state', (playersWithNames) => {
-      setPlayers(playersWithNames);
-      const me = playersWithNames.find(p => p.id === socket.id);
-      if (me && me.name) {
-        if (me.name !== playerName) {
-           setPlayerName(me.name);
-        }
-        if (me.name !== newNameInput){
-           setNewNameInput(me.name);
-        }
+      // If player name is already set from localStorage, join the room.
+      const existingName = localStorage.getItem('playerName');
+      if (existingName) {
+        socket.emit('join room', { roomId, playerName: existingName });
+        setIsNameSet(true);
       }
     });
 
-    // UPDATED: Listen for the consolidated 'game started' event
+    // Effect for game events
+    socket.on('room state', setPlayers);
     socket.on('game started', ({ hands, turn, players }) => {
         setHands(hands);
         setCurrentTurn(turn);
         setPlayers(players);
-        // Reset all game state for a fresh start
         setSelected([]);
         setTableCards([]);
         setLastPlayed(null);
@@ -71,41 +52,32 @@ function App() {
         setMessage('');
         setWinner(null);
     });
-
-    socket.on('turn', (playerSocketId) => {
-      setCurrentTurn(playerSocketId);
-      setMessage('');
-    });
-
+    socket.on('turn', setCurrentTurn);
     socket.on('cards played', ({ whoPlayed, playedCards, declaredRank }) => {
       setTableCards(prev => [...prev, ...playedCards]); 
       setLastPlayed({ playerId: whoPlayed, cards: playedCards, declaredRank });
       setDeclaredRank(declaredRank);
       if (whoPlayed === socket.id) setSelected([]);
     });
-
-    socket.on('update hands', (allHands) => setHands(allHands));
-
+    socket.on('update hands', setHands);
     socket.on('table cleared', () => {
       setTableCards([]);
       setLastPlayed(null);
       setDeclaredRank('');
       setRevealedCards([]);
     });
-    
     socket.on('reveal cards', (cards) => {
         setRevealedCards(cards);
         setTimeout(() => setRevealedCards([]), 3000);
     });
-
-    socket.on('message', (msg) => setMessage(msg));
-    socket.on('error message', (msg) => alert(msg));
+    socket.on('message', setMessage);
+    socket.on('error message', alert);
     socket.on('game over', ({ winnerName }) => setWinner(winnerName));
 
     return () => {
       socket.off('connect');
       socket.off('room state');
-      socket.off('game started'); // Clean up the new listener
+      socket.off('game started');
       socket.off('turn');
       socket.off('cards played');
       socket.off('update hands');
@@ -117,12 +89,27 @@ function App() {
     };
   }, [roomId]);
 
+  const pluralizeRank = (count, rank) => {
+    if (!rank) return '';
+    const rankNames = {'2':'Two','3':'Three','4':'Four','5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine','10':'Ten','J':'Jack','Q':'Queen','K':'King','A':'Ace'};
+    const baseName = rankNames[rank] || rank;
+    if (rank === '6') return count === 1 ? `1 Six` : `${count} Sixes`;
+    return count === 1 ? `1 ${baseName}` : `${count} ${baseName}s`;
+  };
+
   const handleNameChange = () => {
-    const name = newNameInput.trim();
-    if (name && name !== playerName) {
-      setPlayerName(name);
-      localStorage.setItem('playerName', name);
-      socket.emit('set name', { roomId, name });
+    let nameToSet = newNameInput.trim();
+    if (!nameToSet) {
+        nameToSet = `Player #${Math.floor(Math.random() * 1000)}`;
+    }
+    setPlayerName(nameToSet);
+    localStorage.setItem('playerName', nameToSet);
+    
+    if (!isNameSet) { // If this is the first time setting the name
+        socket.emit('join room', { roomId, playerName: nameToSet });
+        setIsNameSet(true);
+    } else { // Otherwise, just update the name
+        socket.emit('set name', { roomId, name: nameToSet });
     }
   };
 
@@ -133,13 +120,11 @@ function App() {
   const playCards = () => {
     if (selected.length === 0) return alert("Select at least one card to play.");
     let currentDeclaredRank = declaredRank;
-    
     if (!currentDeclaredRank) {
       const inputRank = prompt("Declare the rank for this round (e.g., 2, J, A):");
       if (!inputRank) return;
       currentDeclaredRank = inputRank.trim().toUpperCase();
     }
-    
     socket.emit('play cards', { roomId, playedCards: selected, declaredRank: currentDeclaredRank });
   };
   
@@ -149,6 +134,25 @@ function App() {
   const scrollHand = (direction) => handRef.current?.scrollBy({ left: direction * 200, behavior: 'smooth' });
   
   const isMyTurn = currentTurn === playerId;
+
+  if (!isNameSet) {
+    return (
+        <div className="name-entry-container">
+            <h1>Welcome to Bluff!</h1>
+            <p>Please enter your name to join the game.</p>
+            <div className="name-changer">
+                <input 
+                    type="text" 
+                    value={newNameInput} 
+                    onChange={(e) => setNewNameInput(e.target.value)} 
+                    placeholder="Enter your name" 
+                    onKeyPress={(e) => e.key === 'Enter' && handleNameChange()}
+                />
+                <button onClick={handleNameChange}>Join Game</button>
+            </div>
+        </div>
+    )
+  }
   
   return (
     <div className="game-container">
@@ -164,8 +168,8 @@ function App() {
 
       <div className="top-info">
         <div className="name-changer">
-            <input type="text" value={newNameInput} onChange={(e) => setNewNameInput(e.target.value)} placeholder="Enter your name" />
-            <button onClick={handleNameChange}>Set Name</button>
+            <input type="text" value={newNameInput} onChange={(e) => setNewNameInput(e.target.value)} />
+            <button onClick={handleNameChange}>Update Name</button>
         </div>
         <span>Players in room: {players.length}</span>
       </div>
@@ -186,8 +190,7 @@ function App() {
           <div className="pile">
             {tableCards.slice(-5).map((card, i) =>
                 <div key={i} className="card" style={{'--i': i}}>
-                  {/* Logic for revealing cards needs to be based on lastPlayed */}
-                  {revealedCards.includes(card) || lastPlayed?.playerId === playerId ? card : <div className="back"></div>}
+                  {revealedCards.includes(card) ? card : <div className="back"></div>}
                 </div>
             )}
           </div>
