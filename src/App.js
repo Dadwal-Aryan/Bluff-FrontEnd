@@ -18,6 +18,8 @@ function App() {
   const [declaredRank, setDeclaredRank] = useState('');
   const [winner, setWinner] = useState(null);
   const [gameJoined, setGameJoined] = useState(false);
+  // --- FIX: Re-introducing state for the VISUAL pile ---
+  const [pileCards, setPileCards] = useState([]);
 
   const handRef = useRef(null);
   const messageTimeoutRef = useRef(null);
@@ -85,8 +87,10 @@ function App() {
         if (gameState.turn) setCurrentTurn(gameState.turn);
         if (gameState.lastPlayed) {
             setLastPlayed(gameState.lastPlayed);
+            setPileCards(gameState.lastPlayed.cards); // Update visual pile from game state
         } else {
             setLastPlayed(null);
+            setPileCards([]); // Clear visual pile if no last play
         }
         if (gameState.declaredRank !== undefined) setDeclaredRank(gameState.declaredRank);
 
@@ -108,12 +112,28 @@ function App() {
         setMessage('');
         setRevealedCards([]);
     });
+    
+    // This event now correctly updates the visual pile
+    socket.on('cards played', ({ whoPlayed, playedCards, declaredRank }) => {
+      setLastPlayed({ playerId: whoPlayed, cards: playedCards, declaredRank });
+      setDeclaredRank(declaredRank);
+      setPileCards(playedCards); // Set the new cards for the pile
+      if (whoPlayed === socket.id) setSelected([]);
+    });
+
+    // This event now correctly clears the visual pile
+    socket.on('table cleared', () => {
+      setLastPlayed(null);
+      setDeclaredRank('');
+      setRevealedCards([]);
+      setPileCards([]); // This line ensures the visual pile is cleared.
+    });
 
     socket.on('reveal cards', (cards) => {
         setRevealedCards(cards);
         setTimeout(() => setRevealedCards([]), 4000);
     });
-    
+
     socket.on('message', (msg) => {
         setMessage(msg);
         if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
@@ -126,6 +146,8 @@ function App() {
       socket.off('connect');
       socket.off('game update');
       socket.off('game started');
+      socket.off('cards played');
+      socket.off('table cleared');
       socket.off('reveal cards');
       socket.off('message');
       socket.off('game over');
@@ -203,7 +225,7 @@ function App() {
       <div className="table">
         <div className="player-area opponent-area">
           {opponents.map(op => (
-            <div key={op.id} className="opponent-container">
+            <div key={op.id}>
               <p className={currentTurn === op.id ? 'active-turn' : ''}>{op.name}</p>
               <div className="card-row">
                 {(hands[op.id] || []).map((_, i) => <div key={i} className="card back"></div>)}
@@ -214,11 +236,20 @@ function App() {
 
         <div className="center-area">
           <div className="pile">
-            {lastPlayed && lastPlayed.cards.map((card, i) => {
-              const showFace = lastPlayed.playerId === playerId || revealedCards.includes(card);
-              return showFace ? 
-                (<div key={i} className={`card ${getCardColorClass(card)}`} style={{'--i': i}}>{card}</div>) : 
-                (<div key={i} className="card back" style={{'--i': i}}></div>);
+            {/* Logic for the pile now renders from its own dedicated state */}
+            {pileCards.map((card, i) => {
+              const showFace = (lastPlayed && lastPlayed.playerId === playerId) || revealedCards.includes(card);
+              if (showFace) {
+                return (
+                  <div key={i} className={`card ${getCardColorClass(card)}`} style={{'--i': i}}>
+                    {card}
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={i} className="card back" style={{'--i': i}}></div>
+                );
+              }
             })}
           </div>
           {lastPlayed && (
