@@ -90,6 +90,22 @@ body {
   justify-content: center;
   align-items: center;
 }
+
+/* **TWEAK**: Styles for the opponent area container */
+.opponent-area {
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: flex-start;
+    height: auto;
+}
+
+.opponent-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+
 .player-area p {
     margin: 0 0 10px 0;
     font-size: 1.1rem;
@@ -144,7 +160,6 @@ body {
   user-select: none;
   transition: all 0.2s ease;
   box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-  /* TWEAK: Adjusted margin for slightly less overlap. */
   margin: 0 -10px;
 }
 
